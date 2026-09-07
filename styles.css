@@ -191,6 +191,12 @@
   flex-direction: row;
 }
 
+/* Hidden tab bar (settings.showTabBar = false) — CSS-only so sessions,
+   switching commands, and restore keep working; terminal takes the full panel. */
+.terminal-view-container.terminal-tabs-hidden .terminal-tab-bar {
+  display: none;
+}
+
 .terminal-view-container.terminal-tabs-right {
   flex-direction: row-reverse;
 }

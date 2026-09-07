@@ -411,6 +411,13 @@ export default class TerminalPlugin extends Plugin {
     }
   }
 
+  updateTabBarVisibility(): void {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
+    for (const leaf of leaves) {
+      (leaf.view as TerminalView).updateTabBarVisibility();
+    }
+  }
+
   updateIcon(name: string): void {
     const safeName = name || "terminal";
     if (this.ribbonEl) setIcon(this.ribbonEl, safeName);

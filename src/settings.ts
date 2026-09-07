@@ -66,6 +66,8 @@ export interface TerminalPluginSettings {
   claudeSessionsMax: number;
   tabColorTintsBackground: boolean;
   tabColors: TabColorDef[];
+  /** Hide the in-panel tab bar entirely (single-tab users). Tabs remain switchable via commands. */
+  showTabBar: boolean;
   tabBarPosition: "top" | "left" | "right";
   wikiLinkAutocomplete: boolean;
   wikiLinkInsertMode: WikiLinkInsertMode;
@@ -105,6 +107,7 @@ export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   claudeSessionsMax: 25,
   tabColorTintsBackground: true,
   tabColors: DEFAULT_TAB_COLORS.map((c) => ({ ...c })),
+  showTabBar: true,
   tabBarPosition: "top",
   wikiLinkAutocomplete: false,
   wikiLinkInsertMode: "wikilink",
@@ -374,6 +377,11 @@ export class TerminalSettingTab extends PluginSettingTab {
             render: (setting) => this.buildThemeRow(setting),
           },
           {
+            name: "Show tab bar",
+            desc: "Show the tab bar above the terminal. Turn off to hide it completely and give the terminal the full panel — tabs still work via the tab commands.",
+            control: { type: "toggle", key: "showTabBar" },
+          },
+          {
             name: "Tab bar position",
             desc: "Position of the tab bar within the terminal panel.",
             control: {
@@ -550,6 +558,9 @@ export class TerminalSettingTab extends PluginSettingTab {
         break;
       case "lineHeight":
         this.plugin.updateLineHeight();
+        break;
+      case "showTabBar":
+        this.plugin.updateTabBarVisibility();
         break;
       case "tabBarPosition":
         this.plugin.updateTabBarPosition();
@@ -1173,6 +1184,19 @@ export class TerminalSettingTab extends PluginSettingTab {
   }
 
   private renderTabBarSection(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("Show tab bar")
+      .setDesc(
+        "Show the tab bar above the terminal. Turn off to hide it completely and give the terminal the full panel — tabs still work via the tab commands."
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.showTabBar).onChange(async (value) => {
+          this.plugin.settings.showTabBar = value;
+          await this.plugin.saveSettings();
+          this.plugin.updateTabBarVisibility();
+        })
+      );
+
     new Setting(containerEl)
       .setName("Tab bar position")
       .setDesc("Position of the tab bar within the terminal panel.")

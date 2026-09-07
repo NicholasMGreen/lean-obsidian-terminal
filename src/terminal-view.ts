@@ -44,6 +44,7 @@ export class TerminalView extends ItemView {
     container.addClass("terminal-view-container");
     this.viewContainer = container;
     this.applyTabBarPosition();
+    this.updateTabBarVisibility();
 
     // Tab bar
     const tabBarEl = container.createDiv({ cls: "terminal-tab-bar" });
@@ -165,6 +166,13 @@ export class TerminalView extends ItemView {
     const pos = this.plugin.settings.tabBarPosition;
     if (pos === "left") this.viewContainer.addClass("terminal-tabs-left");
     else if (pos === "right") this.viewContainer.addClass("terminal-tabs-right");
+  }
+
+  /** Toggle the in-panel tab bar (settings.showTabBar). The bar stays in the DOM;
+   *  hiding is CSS-only so sessions, switching commands, and restore are unaffected. */
+  updateTabBarVisibility(): void {
+    if (!this.viewContainer) return;
+    this.viewContainer.toggleClass("terminal-tabs-hidden", !this.plugin.settings.showTabBar);
   }
 
   getState(): Record<string, unknown> {

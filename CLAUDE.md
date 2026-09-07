@@ -19,6 +19,10 @@ npm run lint        # Run ESLint (typescript-eslint type-checked + eslint-plugin
 node install.mjs    # Copy plugin to D:\LOS Test vault
 ```
 
+## System map
+
+`map/` holds the agent-facing map of this repo: object cards (nouns), process cards (verbs), and a change-impact index (`map/effects/CONTEXT.md`, incl. outside-in consumers). Route through `map/CLAUDE.md` before reading src — do not slurp the tree.
+
 ## Architecture
 
 ```
