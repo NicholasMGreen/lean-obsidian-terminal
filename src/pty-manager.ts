@@ -1,6 +1,12 @@
 import { Platform } from "obsidian";
 import { getShellIntegration } from "./shell-integration";
-import { requireNode, nodeProcess, type FsApi, type PathApi } from "./node-api";
+import {
+  requireNode,
+  nodeProcess,
+  type ChildProcessApi,
+  type FsApi,
+  type PathApi,
+} from "./node-api";
 
 interface IPtyProcess {
   pid: number;
@@ -121,21 +127,126 @@ export function repairConptyLayout(
   }
 }
 
+// Per-session memo so restoring N tabs pays for the lookup once, not N times.
+// A string is a resolved package exe; null is a clean "no Store package" answer.
+// A failed lookup (timeout, non-zero exit, missing exe) is never stored, so it is
+// retried once the cool-off below ends instead of pinning the alias for the session.
+const storePwshCache = new Map<string, string | null>();
+
+// After a failed lookup, skip the lookup for a minute. The call is synchronous on
+// the UI thread, so a hung AppX service (5 s timeout) would otherwise freeze
+// every tab spawn; a minute is still short enough to recover from a transient
+// failure without restarting Obsidian.
+const STORE_PWSH_RETRY_MS = 60_000;
+let storePwshFailedAt: number | null = null;
+
+export function clearStorePwshCache(): void {
+  storePwshCache.clear();
+  storePwshFailedAt = null;
+}
+
+export function resolveWindowsStorePwshAlias(
+  shellPath: string,
+  fs: FsApi,
+  childProcess: ChildProcessApi
+): string {
+  const normalized = shellPath.split("/").join("\\").toLowerCase();
+  if (!normalized.endsWith("\\microsoft\\windowsapps\\pwsh.exe")) return shellPath;
+  // A missing alias fails validation anyway; don't pay for the lookup.
+  if (!fs.existsSync(shellPath)) return shellPath;
+
+  const cached = storePwshCache.get(normalized);
+  if (cached === null) return shellPath;
+  if (cached !== undefined) {
+    try {
+      // A Store update moves the versioned folder, so re-check before reuse.
+      if (fs.statSync(cached).isFile()) return cached;
+    } catch {
+      // Stale entry: look the package up again.
+    }
+  }
+
+  if (storePwshFailedAt !== null) {
+    // A negative elapsed time means the clock was set back; don't wait for it.
+    const elapsed = Date.now() - storePwshFailedAt;
+    if (elapsed >= 0 && elapsed < STORE_PWSH_RETRY_MS) return shellPath;
+  }
+
+  try {
+    const resolved = lookUpStorePwsh(fs, childProcess);
+    storePwshCache.set(normalized, resolved);
+    storePwshFailedAt = null;
+    return resolved ?? shellPath;
+  } catch {
+    // Leave the alias; the normal shell validation reports any failure.
+    storePwshFailedAt = Date.now();
+    return shellPath;
+  }
+}
+
+// Asks Windows for the installed Store package directly. where.exe is not
+// used: the package folder is not on PATH, and it would return whichever
+// other pwsh.exe is (scoop, dotnet tool) instead of the Store build.
+// Returns null for a clean empty answer and throws on any failure.
+function lookUpStorePwsh(fs: FsApi, childProcess: ChildProcessApi): string | null {
+  const output = childProcess.execFileSync(
+    "powershell.exe",
+    [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "Get-AppxPackage -Name Microsoft.PowerShell | Sort-Object { [version]$_.Version } -Descending | Select-Object -First 1 -ExpandProperty InstallLocation",
+    ],
+    { encoding: "utf8", timeout: 5000, windowsHide: true }
+  );
+  // The last line is the path; Windows PowerShell 5.1 can print warnings before it.
+  const installLocation = output.trim().split(/\r?\n/).pop()?.trim();
+  if (!installLocation) return null;
+
+  const candidate = `${installLocation}\\pwsh.exe`;
+  if (!fs.statSync(candidate).isFile()) throw new Error(`Not a file: ${candidate}`);
+  return candidate;
+}
+
+/**
+ * Picks the default Windows shell: PowerShell 7 from the standard installer,
+ * then the Microsoft Store build, then COMSPEC. The Store alias is only
+ * resolved when it actually exists, so machines without PowerShell 7 never
+ * pay for the powershell.exe lookup (can block up to 5 s, once per session, or
+ * once per minute while it keeps failing).
+ */
+export function pickWindowsDefaultShell(
+  env: Record<string, string | undefined>,
+  fs: FsApi,
+  childProcess: ChildProcessApi
+): string {
+  const standardPwsh = (env.ProgramFiles || "") + "\\PowerShell\\7\\pwsh.exe";
+  const storeAlias = (env.LOCALAPPDATA || "") + "\\Microsoft\\WindowsApps\\pwsh.exe";
+  try {
+    if (env.ProgramFiles && fs.existsSync(standardPwsh)) return standardPwsh;
+    if (env.LOCALAPPDATA && fs.existsSync(storeAlias)) {
+      return resolveWindowsStorePwshAlias(storeAlias, fs, childProcess);
+    }
+    // existsSync above is also checked inside the resolver, kept here so a
+    // missing alias falls through to COMSPEC instead of returning a dead path.
+  } catch {
+    // ignore
+  }
+  return env.COMSPEC || "cmd.exe";
+}
+
 function getDefaultShell(): string {
   if (Platform.isWin) {
-    const pwshPaths = [
-      nodeProcess.env.ProgramFiles + "\\PowerShell\\7\\pwsh.exe",                    // standard installer
-      (nodeProcess.env.LOCALAPPDATA || "") + "\\Microsoft\\WindowsApps\\pwsh.exe",   // MS Store
-    ];
     try {
-      const fs = requireNode("fs");
-      for (const p of pwshPaths) {
-        if (p && fs.existsSync(p)) return p;
-      }
+      return pickWindowsDefaultShell(
+        nodeProcess.env,
+        requireNode("fs"),
+        requireNode("child_process")
+      );
     } catch {
-      // ignore
+      return nodeProcess.env.COMSPEC || "cmd.exe";
     }
-    return nodeProcess.env.COMSPEC || "cmd.exe";
   }
   return nodeProcess.env.SHELL || "/bin/bash";
 }
@@ -196,7 +307,12 @@ export class PtyManager {
     const nodePtyDir = getNodePtyDir(this.pluginDir);
     this.nodePty = loadNodePty(nodePtyDir);
 
-    const shell = shellPath || getDefaultShell();
+    // getDefaultShell() already resolves the Store alias; only a configured
+    // shell path needs it here, so the lookups don't run twice per tab.
+    const shell =
+      shellPath && Platform.isWin
+        ? resolveWindowsStorePwshAlias(shellPath, requireNode("fs"), requireNode("child_process"))
+        : shellPath || getDefaultShell();
     this._shellPath = shell;
     validateShellPath(shell);
     const baseArgs = getShellArgs(shell);

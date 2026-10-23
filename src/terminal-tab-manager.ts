@@ -9,7 +9,8 @@ import { registerOsc52 } from "./osc52-clipboard";
 import type { IDisposable } from "@xterm/xterm";
 import { PtyManager } from "./pty-manager";
 import { findPathCandidates, splitLineSuffix } from "./path-links";
-import { resolveTabCwd } from "./tab-cwd";
+import { planTabCwd } from "./tab-cwd";
+import { requireNode } from "./node-api";
 import { isObsidianDark } from "./themes";
 import { mixHex } from "./color-utils";
 import { findTabColor, DEFAULT_TINT_STRENGTH, MAX_TINT_STRENGTH } from "./tab-colors";
@@ -967,7 +968,12 @@ export class TerminalTabManager {
     this.sessionCounter++;
     const id = `terminal-${this.sessionCounter}`;
     const name = opts?.name ?? `Terminal ${this.sessionCounter}`;
-    const sessionCwd = resolveTabCwd(opts?.cwd, this.cwd);
+    const cwdPlan = planTabCwd(opts?.cwd, this.cwd, (p) => requireNode("fs").statSync(p).isDirectory());
+    const sessionCwd = cwdPlan.spawn;
+    if (cwdPlan.fellBack) {
+      console.warn(`[lean-terminal] Folder not available: ${cwdPlan.stored}. Opened ${sessionCwd} instead.`);
+      new Notice(`Folder not available: ${cwdPlan.stored}. Opened the vault root instead.`);
+    }
 
     const containerEl = this.terminalHostEl.createDiv({ cls: "terminal-session" });
     const { terminal, fitAddon, serializeAddon, searchAddon } = this.buildXterm(containerEl, opts);
@@ -1000,7 +1006,7 @@ export class TerminalTabManager {
       pty,
       containerEl,
       color: opts?.color ?? "",
-      cwd: sessionCwd,
+      cwd: cwdPlan.stored,
       resumeCommand: opts?.resumeCommand,
       parserDisposables: [],
       mode2031: false,
