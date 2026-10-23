@@ -6,15 +6,8 @@ All notable changes to Lean Obsidian Terminal are documented here.
 
 ### Improvements
 
-- docs: regenerate CHANGELOG for 1.6.0
-- docs: update CLAUDE.md for the tab cwd fallback and test count
-- chore: release 1.6.1
-- Release 1.6.1
-
-### Bug fixes
-
-- fix: support Microsoft Store PowerShell and Windows shell markers
-- fix: fall back to the vault root when a saved tab cwd no longer exists
+- **Shell:** Microsoft Store PowerShell 7 is now found and launched automatically. The Store's `pwsh.exe` alias does not start under the terminal backend, so the plugin resolves it to the real installed package. Shell integration markers also work in Windows PowerShell 5.1 now (#102).
+- **Working directory:** a tab whose saved folder no longer exists (moved or deleted folder, unplugged drive) now opens in your vault root instead of failing to start. The tab keeps the original path saved, so it comes back once the drive does, and a notice tells you when the fallback happened.
 
 ## 1.6.0 - October 22, 2026
 
