@@ -2,6 +2,20 @@
 
 All notable changes to Lean Obsidian Terminal are documented here.
 
+## 1.6.1 - October 23, 2026
+
+### Improvements
+
+- docs: regenerate CHANGELOG for 1.6.0
+- docs: update CLAUDE.md for the tab cwd fallback and test count
+- chore: release 1.6.1
+- Release 1.6.1
+
+### Bug fixes
+
+- fix: support Microsoft Store PowerShell and Windows shell markers
+- fix: fall back to the vault root when a saved tab cwd no longer exists
+
 ## 1.6.0 - October 22, 2026
 
 ### Improvements
