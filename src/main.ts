@@ -10,6 +10,9 @@ import type { SavedViewState } from "./session-state";
 import type { TerminalTabManager } from "./terminal-tab-manager";
 import { KeyHandlerRegistry, type TerminalKeyHandler } from "./key-handler-registry";
 import { requireNode } from "./node-api";
+import { pickTerminalLeaf } from "./terminal-leaf";
+import { resolveLastSeen, shouldShowNotice } from "./update-notice";
+import { UpdateNoticeModal } from "./update-notice-modal";
 
 // Public API types for downstream plugins (e.g. companion key-binding plugins).
 export type { TerminalSession } from "./terminal-tab-manager";
@@ -23,6 +26,8 @@ export default class TerminalPlugin extends Plugin {
   readonly keyHandlerRegistry = new KeyHandlerRegistry();
   private ribbonEl: HTMLElement | null = null;
   private themeObserver: MutationObserver | null = null;
+  /** False on a fresh install (no data.json yet); read by the update notice. */
+  private hadSavedData = false;
 
   /**
    * Public API. Register a key handler invoked on every keystroke in every terminal
@@ -72,7 +77,7 @@ export default class TerminalPlugin extends Plugin {
     });
 
     // Ribbon icon
-    this.ribbonEl = this.addRibbonIcon(this.settings.ribbonIcon, "Open terminal", () => {
+    this.ribbonEl = this.addRibbonIcon(this.settings.ribbonIcon, "Open Lean Terminal", () => {
       void this.activateTerminal();
     });
 
@@ -188,9 +193,8 @@ export default class TerminalPlugin extends Plugin {
     // Settings tab
     this.addSettingTab(new TerminalSettingTab(this.app, this));
 
-    // Flush any pending layout save before Obsidian quits. Without this, a
-    // typed-then-quickly-quit scenario loses the last few seconds of activity
-    // because Obsidian's requestSaveLayout is debounced.
+    this.app.workspace.onLayoutReady(() => void this.maybeShowUpdateNotice());
+
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, abstractFile) => {
         const vaultRelDir = abstractFile instanceof TFolder
@@ -210,6 +214,12 @@ export default class TerminalPlugin extends Plugin {
       })
     );
 
+    // Flush any pending layout save before Obsidian quits. Without this, a
+    // typed-then-quickly-quit scenario loses the last few seconds of activity
+    // because Obsidian's requestSaveLayout is debounced.
+    // NOTE: requestSaveLayout is an UNDOCUMENTED Obsidian API (not in obsidian.d.ts).
+    // It is the only way to force the debounced save to run; listed as an
+    // exception in Plugin Requirements.md.
     this.registerEvent(
       this.app.workspace.on("quit", () => {
         void this.app.workspace.requestSaveLayout.run();
@@ -305,11 +315,19 @@ export default class TerminalPlugin extends Plugin {
     }
   }
 
+  /** The terminal pane a tab command should act on: focused pane, else active, else first (#104). */
+  private getTargetTerminalLeaf(): WorkspaceLeaf | null {
+    return pickTerminalLeaf(
+      this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL),
+      activeDocument.activeElement,
+      this.app.workspace.getActiveViewOfType(TerminalView)
+    );
+  }
+
   private newTab(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    if (leaves.length > 0) {
-      const view = leaves[0].view as TerminalView;
-      view.createNewTab();
+    const leaf = this.getTargetTerminalLeaf();
+    if (leaf) {
+      (leaf.view as TerminalView).createNewTab();
     } else {
       // Open terminal first, then it auto-creates a tab
       void this.activateTerminal();
@@ -325,9 +343,8 @@ export default class TerminalPlugin extends Plugin {
   }
 
   private getActiveTabManager(): TerminalTabManager | null {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    if (!leaves.length) return null;
-    return (leaves[0].view as TerminalView).getTabManager() ?? null;
+    const leaf = this.getTargetTerminalLeaf();
+    return leaf ? ((leaf.view as TerminalView).getTabManager() ?? null) : null;
   }
 
   private navigateTerminalTab(delta: -1 | 1): void {
@@ -382,8 +399,25 @@ export default class TerminalPlugin extends Plugin {
     await this.openTerminalAt(cwd);
   }
 
+  /**
+   * Shows the one-time support pop-up after a minor or major update, then
+   * records the current version. Fresh installs record it silently.
+   */
+  private async maybeShowUpdateNotice(): Promise<void> {
+    const current = this.manifest.version;
+    const lastSeen = resolveLastSeen(this.settings.lastSeenVersion, this.hadSavedData);
+    if (lastSeen === current) return;
+    if (this.settings.showUpdateNotice && shouldShowNotice(lastSeen, current)) {
+      new UpdateNoticeModal(this.app, current).open();
+    }
+    this.settings.lastSeenVersion = current;
+    await this.saveSettings();
+  }
+
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<TerminalPluginSettings>);
+    const saved = await this.loadData() as Partial<TerminalPluginSettings> | null;
+    this.hadSavedData = saved != null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
     // tabColors is the only array in settings. Object.assign is shallow,
     // so on a fresh install (data.json has no tabColors) the merged
     // settings would share the reference with DEFAULT_SETTINGS, and any
@@ -447,6 +481,13 @@ export default class TerminalPlugin extends Plugin {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
     for (const leaf of leaves) {
       (leaf.view as TerminalView).updateLineHeight();
+    }
+  }
+
+  updateMinimumContrastRatio(): void {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
+    for (const leaf of leaves) {
+      (leaf.view as TerminalView).updateMinimumContrastRatio();
     }
   }
 }

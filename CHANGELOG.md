@@ -2,6 +2,50 @@
 
 All notable changes to Lean Obsidian Terminal are documented here.
 
+## 1.6.1 - October 23, 2026
+
+### Improvements
+
+- **Shell:** Microsoft Store PowerShell 7 is now found and launched automatically. The Store's `pwsh.exe` alias does not start under the terminal backend, so the plugin resolves it to the real installed package. Shell integration markers also work in Windows PowerShell 5.1 now (#102).
+- **Working directory:** a tab whose saved folder no longer exists (moved or deleted folder, unplugged drive) now opens in your vault root instead of failing to start. The tab keeps the original path saved, so it comes back once the drive does, and a notice tells you when the fallback happened.
+
+## 1.6.0 - October 22, 2026
+
+### Improvements
+
+- **Clipboard:** terminal apps such as Claude Code can now set your system clipboard through OSC 52. It is write-only, so programs can never read your clipboard (#103).
+- **Title:** the panel title and ribbon tooltip now say Lean Terminal.
+- **Styling:** the plugin's CSS is now scoped to the terminal view and no longer leaks into the rest of Obsidian. The classes attached to the page body were renamed to `lean-terminal-drag-label`, `lean-terminal-tab-context-menu` and `lean-terminal-ctx-*`, so CSS snippets that target the old `.terminal-*` classes need updating, and some overrides may need a more specific selector.
+
+### Bug fixes
+
+- **Working directory:** fixed tabs with an empty or missing working directory opening in Obsidian's install folder instead of your vault (#114).
+
+## 1.5.0 - October 4, 2026
+
+### Improvements
+
+- **Update notice:** a one-time pop-up after minor and major releases with a what's-new list and a link to support development. Patch releases never show it, and you can turn it off under Settings > Lean Terminal > Show update notice.
+- **Split panes:** tab commands now target the focused pane (#104).
+- **Escape:** keeps focus in the terminal instead of switching panes, and you can turn that off in settings (#97).
+- **Contrast:** new minimum contrast setting for readable grey and dim text (#106).
+
+### Bug fixes
+
+- **Windows ARM64:** fixed the missing `conpty.dll` error, with automatic repair of existing installs (#105).
+
+## 1.4.1 - October 4, 2026
+
+### New
+
+- New: "Minimum contrast ratio" setting (1 to 21, default 4.5) that raises the contrast of grey and dim text, applied live to open terminals. Set it to 1 to restore the previous rendering (#106)
+
+### Bug fixes
+
+- Fix: Windows ARM64 terminal failed to start with "Cannot find conpty.dll" because the 1.4.0 package had the ConPTY files in the wrong folder. The modern ConPTY is now only enabled when the files are where node-pty loads them from, and existing ARM64 installs repair themselves the first time a terminal opens, no re-download needed (#105)
+- Fix: next, previous, first, last and "go to tab N" commands, and "New terminal tab", now act on the focused terminal pane instead of always the first pane (#104)
+- Fix: pressing Escape in the terminal (vim, helix, Claude Code) no longer moves focus out of the terminal. New setting "Keep focus in terminal on escape", on by default (#97)
+
 ## 1.4.0 - July 19, 2026
 
 ### New

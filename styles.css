@@ -5,7 +5,7 @@
  * Update this block when upgrading @xterm/xterm.
  * ============================================================ */
 
-.xterm {
+.workspace-leaf-content[data-type="terminal-view"] .xterm {
   cursor: text;
   position: relative;
   user-select: none;
@@ -13,18 +13,18 @@
   -webkit-user-select: none;
 }
 
-.xterm.focus,
-.xterm:focus {
+.workspace-leaf-content[data-type="terminal-view"] .xterm.focus,
+.workspace-leaf-content[data-type="terminal-view"] .xterm:focus {
   outline: none;
 }
 
-.xterm .xterm-helpers {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-helpers {
   position: absolute;
   top: 0;
   z-index: 5;
 }
 
-.xterm .xterm-helper-textarea {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-helper-textarea {
   padding: 0;
   border: 0;
   margin: 0;
@@ -40,7 +40,7 @@
   resize: none;
 }
 
-.xterm .composition-view {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .composition-view {
   background: #000000;
   color: #ffffff;
   display: none;
@@ -49,11 +49,11 @@
   z-index: 1;
 }
 
-.xterm .composition-view.active {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .composition-view.active {
   display: block;
 }
 
-.xterm .xterm-viewport {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-viewport {
   background-color: #000000;
   overflow-y: scroll;
   cursor: default;
@@ -64,21 +64,21 @@
   bottom: 0;
 }
 
-.xterm .xterm-screen {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-screen {
   position: relative;
 }
 
-.xterm .xterm-screen canvas {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-screen canvas {
   position: absolute;
   left: 0;
   top: 0;
 }
 
-.xterm .xterm-scroll-area {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-scroll-area {
   visibility: hidden;
 }
 
-.xterm-char-measure-element {
+.workspace-leaf-content[data-type="terminal-view"] .xterm-char-measure-element {
   display: inline-block;
   visibility: hidden;
   position: absolute;
@@ -87,21 +87,21 @@
   line-height: normal;
 }
 
-.xterm.enable-mouse-events {
+.workspace-leaf-content[data-type="terminal-view"] .xterm.enable-mouse-events {
   cursor: default;
 }
 
-.xterm.xterm-cursor-pointer,
-.xterm .xterm-cursor-pointer {
+.workspace-leaf-content[data-type="terminal-view"] .xterm.xterm-cursor-pointer,
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-cursor-pointer {
   cursor: pointer;
 }
 
-.xterm.column-select.focus {
+.workspace-leaf-content[data-type="terminal-view"] .xterm.column-select.focus {
   cursor: crosshair;
 }
 
-.xterm .xterm-accessibility:not(.debug),
-.xterm .xterm-message {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-accessibility:not(.debug),
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-message {
   position: absolute;
   left: 0;
   top: 0;
@@ -112,16 +112,16 @@
   pointer-events: none;
 }
 
-.xterm .xterm-accessibility-tree:not(.debug) *::selection {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-accessibility-tree:not(.debug) *::selection {
   color: transparent;
 }
 
-.xterm .xterm-accessibility-tree {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-accessibility-tree {
   user-select: text;
   white-space: pre;
 }
 
-.xterm .live-region {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .live-region {
   position: absolute;
   left: -9999px;
   width: 1px;
@@ -129,29 +129,29 @@
   overflow: hidden;
 }
 
-.xterm .xterm-dim {
+.workspace-leaf-content[data-type="terminal-view"] .xterm .xterm-dim {
   opacity: 1;
 }
 
-.xterm-underline-1 { text-decoration: underline; }
-.xterm-underline-2 { text-decoration: underline; }
-.xterm-underline-3 { text-decoration: underline; }
-.xterm-underline-4 { text-decoration: underline; }
-.xterm-underline-5 { text-decoration: underline; }
+.workspace-leaf-content[data-type="terminal-view"] .xterm-underline-1 { text-decoration: underline; }
+.workspace-leaf-content[data-type="terminal-view"] .xterm-underline-2 { text-decoration: underline; }
+.workspace-leaf-content[data-type="terminal-view"] .xterm-underline-3 { text-decoration: underline; }
+.workspace-leaf-content[data-type="terminal-view"] .xterm-underline-4 { text-decoration: underline; }
+.workspace-leaf-content[data-type="terminal-view"] .xterm-underline-5 { text-decoration: underline; }
 
-.xterm-overline { text-decoration: overline; }
-.xterm-strikethrough { text-decoration: line-through; }
+.workspace-leaf-content[data-type="terminal-view"] .xterm-overline { text-decoration: overline; }
+.workspace-leaf-content[data-type="terminal-view"] .xterm-strikethrough { text-decoration: line-through; }
 
-.xterm-screen .xterm-decoration-container .xterm-decoration {
+.workspace-leaf-content[data-type="terminal-view"] .xterm-screen .xterm-decoration-container .xterm-decoration {
   z-index: 6;
   position: absolute;
 }
 
-.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer {
+.workspace-leaf-content[data-type="terminal-view"] .xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer {
   z-index: 7;
 }
 
-.xterm-decoration-overview-ruler {
+.workspace-leaf-content[data-type="terminal-view"] .xterm-decoration-overview-ruler {
   z-index: 8;
   position: absolute;
   top: 0;
@@ -159,7 +159,7 @@
   pointer-events: none;
 }
 
-.xterm-decoration-top {
+.workspace-leaf-content[data-type="terminal-view"] .xterm-decoration-top {
   z-index: 2;
   position: relative;
 }
@@ -168,14 +168,14 @@
  * Plugin styles
  * ============================================================ */
 
-.terminal-view-container {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
 /* Tab bar */
-.terminal-tab-bar {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab-bar {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -186,23 +186,23 @@
 }
 
 /* Vertical tab bar variants */
-.terminal-view-container.terminal-tabs-left,
-.terminal-view-container.terminal-tabs-right {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-left,
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-right {
   flex-direction: row;
 }
 
 /* Hidden tab bar (settings.showTabBar = false) — CSS-only so sessions,
    switching commands, and restore keep working; terminal takes the full panel. */
-.terminal-view-container.terminal-tabs-hidden .terminal-tab-bar {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-hidden .terminal-tab-bar {
   display: none;
 }
 
-.terminal-view-container.terminal-tabs-right {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-right {
   flex-direction: row-reverse;
 }
 
-.terminal-view-container.terminal-tabs-left .terminal-tab-bar,
-.terminal-view-container.terminal-tabs-right .terminal-tab-bar {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-left .terminal-tab-bar,
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-right .terminal-tab-bar {
   flex-direction: column;
   width: 140px;
   border-bottom: none;
@@ -212,32 +212,32 @@
   padding: 8px 4px;
 }
 
-.terminal-view-container.terminal-tabs-right .terminal-tab-bar {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-right .terminal-tab-bar {
   border-right: none;
   border-left: 1px solid var(--background-modifier-border);
 }
 
-.terminal-view-container.terminal-tabs-left .terminal-tab.active {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-left .terminal-tab.active {
   box-shadow: inset -2px 0 0 var(--tab-accent, var(--interactive-accent));
 }
 
-.terminal-view-container.terminal-tabs-right .terminal-tab.active {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-right .terminal-tab.active {
   box-shadow: inset 2px 0 0 var(--tab-accent, var(--interactive-accent));
 }
 
-.terminal-view-container.terminal-tabs-left .terminal-tab.drag-over,
-.terminal-view-container.terminal-tabs-right .terminal-tab.drag-over {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-left .terminal-tab.drag-over,
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-right .terminal-tab.drag-over {
   border-left: none;
   border-top: 2px solid var(--interactive-accent);
 }
 
-.terminal-view-container.terminal-tabs-left .terminal-new-tab,
-.terminal-view-container.terminal-tabs-right .terminal-new-tab {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-left .terminal-new-tab,
+.workspace-leaf-content[data-type="terminal-view"] .terminal-view-container.terminal-tabs-right .terminal-new-tab {
   text-align: center;
   padding: 6px 10px;
 }
 
-.terminal-tab {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -250,30 +250,30 @@
   user-select: none;
 }
 
-.terminal-tab:hover {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.terminal-tab.dragging {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab.dragging {
   opacity: 0.4;
 }
 
-.terminal-tab.drag-over {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab.drag-over {
   border-left: 2px solid var(--interactive-accent);
 }
 
-.terminal-tab.active {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab.active {
   background: var(--background-primary);
   color: var(--text-normal);
   box-shadow: inset 0 -2px 0 var(--tab-accent, var(--interactive-accent));
 }
 
-.terminal-tab-label {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab-label {
   pointer-events: none;
 }
 
-.terminal-tab-close {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab-close {
   font-size: 14px;
   line-height: 1;
   opacity: 0.5;
@@ -285,12 +285,12 @@
   justify-content: center;
 }
 
-.terminal-tab-close:hover {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab-close:hover {
   opacity: 1;
   background: var(--background-modifier-hover);
 }
 
-.terminal-new-tab {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-new-tab {
   padding: 4px 10px;
   border-radius: 4px;
   cursor: pointer;
@@ -299,13 +299,13 @@
   user-select: none;
 }
 
-.terminal-new-tab:hover {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-new-tab:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
 /* Rename input inline in tab */
-.terminal-tab-rename-input {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab-rename-input {
   background: var(--background-primary);
   color: var(--text-normal);
   border: 1px solid var(--interactive-accent);
@@ -317,7 +317,7 @@
 }
 
 /* Tab context menu */
-.terminal-tab-context-menu {
+.lean-terminal-tab-context-menu {
   position: fixed;
   z-index: 1000;
   background: var(--background-secondary);
@@ -328,7 +328,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.terminal-ctx-item {
+.lean-terminal-ctx-item {
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 12px;
@@ -336,28 +336,28 @@
   color: var(--text-normal);
 }
 
-.terminal-ctx-item:hover {
+.lean-terminal-ctx-item:hover {
   background: var(--background-modifier-hover);
 }
 
-.terminal-ctx-color-label {
+.lean-terminal-ctx-color-label {
   cursor: default;
   color: var(--text-muted);
   font-size: 11px;
   padding-bottom: 2px;
 }
 
-.terminal-ctx-color-label:hover {
+.lean-terminal-ctx-color-label:hover {
   background: transparent;
 }
 
-.terminal-ctx-color-row {
+.lean-terminal-ctx-color-row {
   display: flex;
   gap: 4px;
   padding: 4px 10px 6px;
 }
 
-.terminal-ctx-swatch {
+.lean-terminal-ctx-swatch {
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -366,20 +366,20 @@
   transition: border-color 0.15s;
 }
 
-.terminal-ctx-swatch:hover {
+.lean-terminal-ctx-swatch:hover {
   border-color: var(--text-muted);
 }
 
-.terminal-ctx-swatch.active {
+.lean-terminal-ctx-swatch.active {
   border-color: var(--text-normal);
 }
 
-.terminal-ctx-swatch-none {
+.lean-terminal-ctx-swatch-none {
   background: var(--background-primary);
   position: relative;
 }
 
-.terminal-ctx-swatch-none::after {
+.lean-terminal-ctx-swatch-none::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -397,39 +397,39 @@
 }
 
 /* Terminal host fills remaining space */
-.terminal-host {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-host {
   flex: 1;
   min-height: 0;
   position: relative;
 }
 
 /* Session fills host */
-.terminal-session {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-session {
   position: absolute;
   inset: 0;
 }
 
-.terminal-session-hidden {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-session-hidden {
   display: none;
 }
 
 /* Constrain xterm to container */
-.terminal-session .xterm {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-session .xterm {
   height: 100%;
 }
 
 /* Scrollbar styling — display:block overrides Obsidian's global scrollbar hide */
-.terminal-session .xterm-viewport::-webkit-scrollbar {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-session .xterm-viewport::-webkit-scrollbar {
   display: block;
   width: 8px;
 }
 
-.terminal-session .xterm-viewport::-webkit-scrollbar-thumb {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-session .xterm-viewport::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb-bg, rgba(128, 128, 128, 0.5));
   border-radius: 4px;
 }
 
-.terminal-session .xterm-viewport::-webkit-scrollbar-track {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-session .xterm-viewport::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -446,7 +446,7 @@
 }
 
 /* Drag-and-drop file path label */
-.terminal-drag-label {
+.lean-terminal-drag-label {
   position: fixed;
   display: none;
   padding: 4px 10px;
@@ -458,7 +458,7 @@
   z-index: 9999;
 }
 
-.terminal-drag-label-visible {
+.lean-terminal-drag-label-visible {
   display: block;
 }
 
@@ -522,7 +522,7 @@
 }
 
 /* Tab pinning */
-.terminal-tab-pin-icon {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab-pin-icon {
   font-size: 10px;
   opacity: 0.8;
   flex-shrink: 0;
@@ -533,7 +533,7 @@
    from the tab-manager and drive idle/hover/active fill density. The
    multiplier (1.5/2.2/2.7) lets users keep the same numeric intensity
    value while idle/hover/active stay visually distinct. */
-.terminal-tab--colored {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab--colored {
   background: color-mix(
     in srgb,
     var(--tab-accent) calc(var(--tab-color-intensity) * 1.5%),
@@ -542,7 +542,7 @@
   border-left: 3px solid var(--tab-accent);
 }
 
-.terminal-tab--colored:hover {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab--colored:hover {
   background: color-mix(
     in srgb,
     var(--tab-accent) calc(var(--tab-color-intensity) * 2.2%),
@@ -550,7 +550,7 @@
   );
 }
 
-.terminal-tab--colored.active {
+.workspace-leaf-content[data-type="terminal-view"] .terminal-tab--colored.active {
   background: color-mix(
     in srgb,
     var(--tab-accent) calc(var(--tab-color-intensity) * 2.7%),

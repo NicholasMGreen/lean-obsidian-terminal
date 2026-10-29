@@ -29,7 +29,7 @@ export default tseslint.config(
       "obsidianmd/ui/sentence-case": [
         "error",
         {
-          brands: ["Claude Code", "Claude", "Obsidian", "PowerShell", "Wiki-link", "Windows", "macOS", "Linux"],
+          brands: ["Lean Terminal", "Claude Code", "Claude", "Obsidian", "PowerShell", "Wiki-link", "Windows", "macOS", "Linux"],
           // Literal syntax and example paths in settings copy, not prose:
           // [[Note]] wiki-link syntax, file-path examples, shell command examples.
           ignoreRegex: ["\\[\\[.*\\]\\]", "[\\w~./\\\\-]+[/\\\\][\\w~./\\\\-]+", "\\(e\\.g\\..*\\)"],

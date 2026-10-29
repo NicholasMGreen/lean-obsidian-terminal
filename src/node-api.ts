@@ -15,6 +15,7 @@
 export interface FsStats {
   mtime: Date;
   isFile(): boolean;
+  isDirectory(): boolean;
 }
 
 export interface FsReadStream {
@@ -32,6 +33,7 @@ export interface FsApi {
   existsSync(path: string): boolean;
   statSync(path: string): FsStats;
   mkdirSync(path: string, options?: { recursive?: boolean }): void;
+  copyFileSync(src: string, dest: string): void;
   readdirSync(path: string): string[];
   readFileSync(path: string, encoding: "utf-8"): string;
   writeFileSync(path: string, data: string | Uint8Array, encoding?: "utf-8"): void;
@@ -49,7 +51,16 @@ export interface PathApi {
 }
 
 export interface ChildProcessApi {
-  execFileSync(file: string, args: string[], options?: { timeout?: number }): unknown;
+  execFileSync(
+    file: string,
+    args: string[],
+    options: { encoding: "utf8"; timeout?: number; windowsHide?: boolean }
+  ): string;
+  execFileSync(
+    file: string,
+    args: string[],
+    options?: { timeout?: number; windowsHide?: boolean }
+  ): unknown;
 }
 
 export interface CryptoHash {

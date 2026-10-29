@@ -2,13 +2,13 @@
  * Installs the plugin into an Obsidian vault's .obsidian/plugins directory.
  *
  * Usage: node install.mjs [vault-path]
- * Default vault: D:\LOS Test
+ * Default vault: D:\LEAN VAULTS\DEMO
  */
 
 import { cpSync, mkdirSync, existsSync } from "fs";
 import { resolve, join } from "path";
 
-const vaultPath = process.argv[2] || "D:\\LOS Test";
+const vaultPath = process.argv[2] || "D:\\LEAN VAULTS\\DEMO";
 const pluginDir = join(vaultPath, ".obsidian", "plugins", "lean-terminal");
 
 if (!existsSync(join(vaultPath, ".obsidian"))) {
@@ -49,7 +49,7 @@ if (existsSync(nodePtySrc)) {
     console.log("  Applied ConoutConnection patch (no Worker threads)");
   }
 
-  // Prebuilds, package.json, third_party — may be locked if Obsidian has terminal open
+  // Prebuilds (incl. prebuilds/<platform>-<arch>/conpty/) and package.json — may be locked if Obsidian has terminal open
   let binaryWarning = false;
   try {
     cpSync(join(nodePtySrc, "prebuilds"), join(nodePtyDest, "prebuilds"), { recursive: true });
@@ -60,14 +60,6 @@ if (existsSync(nodePtySrc)) {
     cpSync(join(nodePtySrc, "package.json"), join(nodePtyDest, "package.json"));
   } catch {
     binaryWarning = true;
-  }
-  const thirdParty = join(nodePtySrc, "third_party");
-  if (existsSync(thirdParty)) {
-    try {
-      cpSync(thirdParty, join(nodePtyDest, "third_party"), { recursive: true });
-    } catch {
-      binaryWarning = true;
-    }
   }
 
   if (binaryWarning) {

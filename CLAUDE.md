@@ -16,7 +16,7 @@ npm run dev         # Watch mode (auto-rebuild on changes)
 npm run build       # Production build (minified, type-checked)
 npm test            # Run Vitest suite
 npm run lint        # Run ESLint (typescript-eslint type-checked + eslint-plugin-obsidianmd)
-node install.mjs    # Copy plugin to D:\LOS Test vault
+node install.mjs    # Copy plugin to D:\LEAN VAULTS\DEMO vault
 ```
 
 ## System map
@@ -35,6 +35,10 @@ src/
   binary-manager.ts         # Download/manage node-pty native binaries from GitHub releases
   node-api.ts               # Structural types for Node APIs used via Electron's require() (no @types/node)
   path-links.ts             # Pure helpers: find clickable path tokens, split :line[:col] suffix
+  tab-cwd.ts                # Pure helper: plan a new tab's cwd with an injected isDir check; empty, whitespace or a missing directory spawns in the vault root, the requested path stays stored
+  osc52-clipboard.ts        # OSC 52 parser handler: write-only clipboard support for terminal apps
+  update-notice.ts          # Pure helpers: when to show the one-time update notice (minor/major bumps only)
+  update-notice-modal.ts    # The update notice modal: what's new list and support link
   key-handler-registry.ts   # Registry backing the public registerKeyHandler() API
   wikilink-autocomplete.ts  # [[ ]] autocomplete overlay for vault notes inside the terminal
   claude-sessions.ts        # Scans Claude Code project sessions for the session registry
@@ -58,11 +62,13 @@ Plugin > View > TabManager > PtyManager chain. BinaryManager handles native modu
 - **Native modules**: node-pty NOT bundled by esbuild; loaded at runtime via Electron's `require()`
 - **Binary download**: Users click "Download binaries" in Settings; fetches platform-specific node-pty from GitHub releases
 - **Windows**: winpty backend + ConoutConnection patch (Obsidian's Electron renderer doesn't support Worker threads for ConPTY)
-- **Windows 10 mouse support**: `pty-manager.ts`'s `shouldEnableConptyDll()` gates node-pty's `useConptyDll` on the bundled OpenConsole.exe/conpty.dll actually existing on disk for the host arch, since the win32-arm64 binary package and older downloads may not have them
-- **Shell auto-detect**: Windows tries PowerShell 7 then cmd.exe; macOS/Linux uses `$SHELL`
+- **Windows 10 mouse support**: `pty-manager.ts`'s `shouldEnableConptyDll()` gates node-pty's `useConptyDll` on conpty.dll + OpenConsole.exe existing at `prebuilds/<platform>-<arch>/conpty/` (where node-pty's native loader resolves them, not `third_party/`), since older downloads (e.g. the 1.4.0 win32-arm64 zip, #105) lack that layout; `repairConptyLayout()` runs just before the gate at spawn and copies flat `prebuilds/<platform>-<arch>/{conpty.dll,OpenConsole.exe}` into `conpty/` to heal such installs without a re-download
+- **Shell auto-detect**: Windows (`pickWindowsDefaultShell` in `pty-manager.ts`) tries the standard-installer PowerShell 7, then the Microsoft Store one, then `COMSPEC`/cmd.exe; macOS/Linux uses `$SHELL`. The Store path `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe` is an app execution alias that does not launch under winpty, so `resolveWindowsStorePwshAlias` resolves it to the package's real `pwsh.exe` via `Get-AppxPackage` (not `where.exe`, which can return another PATH pwsh). It only runs when the alias file exists, with a 5 s timeout and `windowsHide`, cached per session (never a failure; a failed lookup is skipped for 60 s), because the call is synchronous on the UI thread. PowerShell shell integration writes OSC 133 markers with `[char]27`, never `` `e ``, so Windows PowerShell 5.1 works too
+- **Tab cwd fallback**: `createTab` runs `planTabCwd` (`tab-cwd.ts`) with a `statSync(...).isDirectory()` check. If a restored tab's saved cwd is empty, not a directory or the stat throws, the shell spawns in the vault root, but `session.cwd` keeps the requested path so a temporarily missing drive is not overwritten on the next layout save. A Notice and `console.warn` ("Folder not available") fire once per affected tab on every restore, not deduplicated. The `statSync` is synchronous on the UI thread, so an unreachable network path (e.g. `\\nas\share`) can block startup for seconds per tab. A restored Claude tab still runs its `resumeCommand` from the vault root after a fallback, so `claude --resume` will likely report "No conversation found"
 - **Settings UI**: declarative schema with in-app settings search on Obsidian 1.13+, falling back to imperative rendering on older supported versions (minAppVersion unchanged)
 - **CI/CD**: Bare semver tags (`1.4.0`, never `v1.4.0` - must match manifest.json exactly) trigger GitHub Actions (build plugin + native binaries + create release); `arm64-prebuilds/` is no longer tracked in git - CI downloads it from the `arm64-prebuilds-v1` release asset
-- **Tests**: Vitest suite via `npm test` (100 tests / 10 files as of writing), colocated as `src/*.test.ts` with mocks in `__mocks__/`
+- **CSS scoping**: every `styles.css` selector must start with `.workspace-leaf-content[data-type="terminal-view"]` or `.lean-`; elements attached to `document.body` use `lean-` classes. `src/styles-scoping.test.ts` enforces this and bans at-rules
+- **Tests**: Vitest suite via `npm test` (184 tests / 18 files as of writing), colocated as `src/*.test.ts` with mocks in `__mocks__/`
 - **Lint**: `npm run lint` runs ESLint (typescript-eslint type-checked + eslint-plugin-obsidianmd). Node API access must go through `src/node-api.ts` structural types - the Obsidian review bot type-checks without `@types/node`
 
 ## Agile Artifacts

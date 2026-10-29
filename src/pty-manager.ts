@@ -1,6 +1,12 @@
 import { Platform } from "obsidian";
 import { getShellIntegration } from "./shell-integration";
-import { requireNode, nodeProcess, type FsApi, type PathApi } from "./node-api";
+import {
+  requireNode,
+  nodeProcess,
+  type ChildProcessApi,
+  type FsApi,
+  type PathApi,
+} from "./node-api";
 
 interface IPtyProcess {
   pid: number;
@@ -41,33 +47,24 @@ function loadNodePty(nodePtyDir: string): NodePtyModule {
   }
 }
 
-// Windows conpty arch directory names as laid out under node-pty's
-// third_party/conpty/<conptyVersion>/<archDir>/ (conpty.dll + OpenConsole.exe).
-const CONPTY_ARCH_DIRS: Record<string, string> = {
-  x64: "win10-x64",
-  arm64: "win10-arm64",
-};
-
 /**
  * Decides whether it is safe to pass `useConptyDll: true` to node-pty's spawn.
  *
  * Context (see GitHub issue #92): on Windows 10, node-pty's default ConPTY
  * (the in-box conhost) does not forward mouse input to TUI apps. Passing
- * `useConptyDll: true` makes node-pty launch the modern OpenConsole.exe it
- * ships under `third_party/conpty/<version>/<archDir>/`, which does forward
- * mouse input on both Windows 10 and 11.
+ * `useConptyDll: true` makes node-pty launch the modern OpenConsole.exe,
+ * which does forward mouse input on both Windows 10 and 11.
  *
- * This plugin does not bundle node-pty - it downloads a platform-specific
- * zip from GitHub releases at runtime (see binary-manager.ts). That zip is
- * built by .github/workflows/build-node-pty.yml, which only copies
- * `third_party` for the win32-x64 package; the win32-arm64 package is
- * assembled from a separately staged install that never copies
- * `third_party`, so it never contains the OpenConsole.exe/conpty.dll files.
- * Older already-downloaded installs may also predate this fix and lack the
- * files. Enabling the flag without these files present would break spawn
- * (or silently fall back to unwanted behavior), so this check gates on the
- * files actually existing on disk for the host architecture rather than
- * assuming they are there.
+ * node-pty's native loader resolves conpty.dll and OpenConsole.exe relative
+ * to conpty.node, i.e. `prebuilds/<platform>-<arch>/conpty/` - NOT the
+ * `third_party/conpty/` source tree of the npm package. This plugin does not
+ * bundle node-pty - it downloads a platform-specific zip from GitHub releases
+ * at runtime (see binary-manager.ts), and some packages (the 1.4.0 win32-arm64
+ * one, see issue #105) shipped the files flat in `prebuilds/<platform>-<arch>/`
+ * or only under `third_party`. Enabling the flag without the files at the
+ * exact path node-pty loads from makes spawn fail with "Cannot find
+ * conpty.dll", so this check gates on that path existing on disk rather than
+ * assuming it does.
  */
 export function shouldEnableConptyDll(
   fs: FsApi,
@@ -78,41 +75,178 @@ export function shouldEnableConptyDll(
 ): boolean {
   if (platform !== "win32") return false;
 
-  const archDir = CONPTY_ARCH_DIRS[arch];
-  if (!archDir) return false;
-
-  const conptyRoot = path.join(nodePtyDir, "third_party", "conpty");
-  if (!fs.existsSync(conptyRoot)) return false;
-
-  let versionDirs: string[];
+  const conptyDir = path.join(nodePtyDir, "prebuilds", `${platform}-${arch}`, "conpty");
   try {
-    versionDirs = fs.readdirSync(conptyRoot);
+    return (
+      fs.existsSync(path.join(conptyDir, "conpty.dll")) &&
+      fs.existsSync(path.join(conptyDir, "OpenConsole.exe"))
+    );
   } catch {
     return false;
   }
+}
 
-  return versionDirs.some((version) => {
-    const dll = path.join(conptyRoot, version, archDir, "conpty.dll");
-    const exe = path.join(conptyRoot, version, archDir, "OpenConsole.exe");
-    return fs.existsSync(dll) && fs.existsSync(exe);
-  });
+const CONPTY_FILES = ["conpty.dll", "OpenConsole.exe"];
+
+/**
+ * Repairs the conpty layout of installs downloaded from the 1.4.0 win32-arm64
+ * zip (issue #105): conpty.dll and OpenConsole.exe sit flat in
+ * `prebuilds/<platform>-<arch>/` but node-pty loads them from the `conpty/`
+ * subfolder next to conpty.node. Copies any missing file into `conpty/` so the
+ * Windows 10 mouse fix (see shouldEnableConptyDll) works without a re-download
+ * - re-downloading the 1.4.0 asset would reproduce the same flat layout.
+ *
+ * Best-effort and idempotent: never throws, never overwrites existing files,
+ * and does nothing when the flat files are absent. Returns true when it
+ * copied at least one file.
+ */
+export function repairConptyLayout(
+  fs: FsApi,
+  path: PathApi,
+  nodePtyDir: string,
+  platform: string,
+  arch: string
+): boolean {
+  if (platform !== "win32") return false;
+
+  try {
+    const prebuildDir = path.join(nodePtyDir, "prebuilds", `${platform}-${arch}`);
+    const conptyDir = path.join(prebuildDir, "conpty");
+    let copied = false;
+    for (const name of CONPTY_FILES) {
+      const src = path.join(prebuildDir, name);
+      const dest = path.join(conptyDir, name);
+      if (fs.existsSync(dest) || !fs.existsSync(src)) continue;
+      fs.mkdirSync(conptyDir, { recursive: true });
+      fs.copyFileSync(src, dest);
+      copied = true;
+    }
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+// Per-session memo so restoring N tabs pays for the lookup once, not N times.
+// A string is a resolved package exe; null is a clean "no Store package" answer.
+// A failed lookup (timeout, non-zero exit, missing exe) is never stored, so it is
+// retried once the cool-off below ends instead of pinning the alias for the session.
+const storePwshCache = new Map<string, string | null>();
+
+// After a failed lookup, skip the lookup for a minute. The call is synchronous on
+// the UI thread, so a hung AppX service (5 s timeout) would otherwise freeze
+// every tab spawn; a minute is still short enough to recover from a transient
+// failure without restarting Obsidian.
+const STORE_PWSH_RETRY_MS = 60_000;
+let storePwshFailedAt: number | null = null;
+
+export function clearStorePwshCache(): void {
+  storePwshCache.clear();
+  storePwshFailedAt = null;
+}
+
+export function resolveWindowsStorePwshAlias(
+  shellPath: string,
+  fs: FsApi,
+  childProcess: ChildProcessApi
+): string {
+  const normalized = shellPath.split("/").join("\\").toLowerCase();
+  if (!normalized.endsWith("\\microsoft\\windowsapps\\pwsh.exe")) return shellPath;
+  // A missing alias fails validation anyway; don't pay for the lookup.
+  if (!fs.existsSync(shellPath)) return shellPath;
+
+  const cached = storePwshCache.get(normalized);
+  if (cached === null) return shellPath;
+  if (cached !== undefined) {
+    try {
+      // A Store update moves the versioned folder, so re-check before reuse.
+      if (fs.statSync(cached).isFile()) return cached;
+    } catch {
+      // Stale entry: look the package up again.
+    }
+  }
+
+  if (storePwshFailedAt !== null) {
+    // A negative elapsed time means the clock was set back; don't wait for it.
+    const elapsed = Date.now() - storePwshFailedAt;
+    if (elapsed >= 0 && elapsed < STORE_PWSH_RETRY_MS) return shellPath;
+  }
+
+  try {
+    const resolved = lookUpStorePwsh(fs, childProcess);
+    storePwshCache.set(normalized, resolved);
+    storePwshFailedAt = null;
+    return resolved ?? shellPath;
+  } catch {
+    // Leave the alias; the normal shell validation reports any failure.
+    storePwshFailedAt = Date.now();
+    return shellPath;
+  }
+}
+
+// Asks Windows for the installed Store package directly. where.exe is not
+// used: the package folder is not on PATH, and it would return whichever
+// other pwsh.exe is (scoop, dotnet tool) instead of the Store build.
+// Returns null for a clean empty answer and throws on any failure.
+function lookUpStorePwsh(fs: FsApi, childProcess: ChildProcessApi): string | null {
+  const output = childProcess.execFileSync(
+    "powershell.exe",
+    [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "Get-AppxPackage -Name Microsoft.PowerShell | Sort-Object { [version]$_.Version } -Descending | Select-Object -First 1 -ExpandProperty InstallLocation",
+    ],
+    { encoding: "utf8", timeout: 5000, windowsHide: true }
+  );
+  // The last line is the path; Windows PowerShell 5.1 can print warnings before it.
+  const installLocation = output.trim().split(/\r?\n/).pop()?.trim();
+  if (!installLocation) return null;
+
+  const candidate = `${installLocation}\\pwsh.exe`;
+  if (!fs.statSync(candidate).isFile()) throw new Error(`Not a file: ${candidate}`);
+  return candidate;
+}
+
+/**
+ * Picks the default Windows shell: PowerShell 7 from the standard installer,
+ * then the Microsoft Store build, then COMSPEC. The Store alias is only
+ * resolved when it actually exists, so machines without PowerShell 7 never
+ * pay for the powershell.exe lookup (can block up to 5 s, once per session, or
+ * once per minute while it keeps failing).
+ */
+export function pickWindowsDefaultShell(
+  env: Record<string, string | undefined>,
+  fs: FsApi,
+  childProcess: ChildProcessApi
+): string {
+  const standardPwsh = (env.ProgramFiles || "") + "\\PowerShell\\7\\pwsh.exe";
+  const storeAlias = (env.LOCALAPPDATA || "") + "\\Microsoft\\WindowsApps\\pwsh.exe";
+  try {
+    if (env.ProgramFiles && fs.existsSync(standardPwsh)) return standardPwsh;
+    if (env.LOCALAPPDATA && fs.existsSync(storeAlias)) {
+      return resolveWindowsStorePwshAlias(storeAlias, fs, childProcess);
+    }
+    // existsSync above is also checked inside the resolver, kept here so a
+    // missing alias falls through to COMSPEC instead of returning a dead path.
+  } catch {
+    // ignore
+  }
+  return env.COMSPEC || "cmd.exe";
 }
 
 function getDefaultShell(): string {
   if (Platform.isWin) {
-    const pwshPaths = [
-      nodeProcess.env.ProgramFiles + "\\PowerShell\\7\\pwsh.exe",                    // standard installer
-      (nodeProcess.env.LOCALAPPDATA || "") + "\\Microsoft\\WindowsApps\\pwsh.exe",   // MS Store
-    ];
     try {
-      const fs = requireNode("fs");
-      for (const p of pwshPaths) {
-        if (p && fs.existsSync(p)) return p;
-      }
+      return pickWindowsDefaultShell(
+        nodeProcess.env,
+        requireNode("fs"),
+        requireNode("child_process")
+      );
     } catch {
-      // ignore
+      return nodeProcess.env.COMSPEC || "cmd.exe";
     }
-    return nodeProcess.env.COMSPEC || "cmd.exe";
   }
   return nodeProcess.env.SHELL || "/bin/bash";
 }
@@ -173,7 +307,12 @@ export class PtyManager {
     const nodePtyDir = getNodePtyDir(this.pluginDir);
     this.nodePty = loadNodePty(nodePtyDir);
 
-    const shell = shellPath || getDefaultShell();
+    // getDefaultShell() already resolves the Store alias; only a configured
+    // shell path needs it here, so the lookups don't run twice per tab.
+    const shell =
+      shellPath && Platform.isWin
+        ? resolveWindowsStorePwshAlias(shellPath, requireNode("fs"), requireNode("child_process"))
+        : shellPath || getDefaultShell();
     this._shellPath = shell;
     validateShellPath(shell);
     const baseArgs = getShellArgs(shell);
@@ -191,11 +330,16 @@ export class PtyManager {
     // useConptyDll enables node-pty's bundled OpenConsole.exe instead of the
     // in-box conhost ConPTY. On Windows 10 the in-box conhost does not
     // forward mouse input (clicks/wheel) to TUI apps - see issue #92. Only
-    // enabled when the required files are actually present for this host's
-    // architecture (see shouldEnableConptyDll doc comment above).
+    // enabled when conpty.dll and OpenConsole.exe exist where node-pty loads
+    // them from, prebuilds/<platform>-<arch>/conpty/ (see shouldEnableConptyDll
+    // doc comment above).
+    const nodeFs = requireNode("fs");
+    const nodePath = requireNode("path");
+    // Heal installs from the 1.4.0 win32-arm64 zip first (issue #105).
+    repairConptyLayout(nodeFs, nodePath, nodePtyDir, nodeProcess.platform, nodeProcess.arch);
     const useConptyDll = shouldEnableConptyDll(
-      requireNode("fs"),
-      requireNode("path"),
+      nodeFs,
+      nodePath,
       nodePtyDir,
       nodeProcess.platform,
       nodeProcess.arch

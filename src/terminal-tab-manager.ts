@@ -5,9 +5,12 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { SearchAddon } from "@xterm/addon-search";
+import { registerOsc52 } from "./osc52-clipboard";
 import type { IDisposable } from "@xterm/xterm";
 import { PtyManager } from "./pty-manager";
 import { findPathCandidates, splitLineSuffix } from "./path-links";
+import { planTabCwd } from "./tab-cwd";
+import { requireNode } from "./node-api";
 import { isObsidianDark } from "./themes";
 import { mixHex } from "./color-utils";
 import { findTabColor, DEFAULT_TINT_STRENGTH, MAX_TINT_STRENGTH } from "./tab-colors";
@@ -18,6 +21,7 @@ import type { BinaryManager } from "./binary-manager";
 import type { SavedTab } from "./session-state";
 import { WikiLinkAutocomplete, type AutocompleteEntry } from "./wikilink-autocomplete";
 import type { KeyHandlerRegistry } from "./key-handler-registry";
+import { normalizeContrastRatio } from "./contrast-ratio";
 
 const SEARCH_DECORATIONS = {
   matchBackground: "#ffff0050",
@@ -534,6 +538,7 @@ export class TerminalTabManager {
       fontSize: this.settings.fontSize,
       fontFamily: this.settings.fontFamily,
       lineHeight: this.settings.lineHeight,
+      minimumContrastRatio: normalizeContrastRatio(this.settings.minimumContrastRatio),
       cursorBlink: this.settings.cursorBlink,
       cursorStyle: this.settings.cursorStyle,
       scrollback: this.settings.scrollback,
@@ -667,7 +672,7 @@ export class TerminalTabManager {
   }
 
   private installDragDrop(containerEl: HTMLElement, pty: PtyManager): HTMLElement {
-    const dragLabel = activeDocument.body.createDiv({ cls: "terminal-drag-label" });
+    const dragLabel = activeDocument.body.createDiv({ cls: "lean-terminal-drag-label" });
     dragLabel.setText("Paste path to file");
 
     const isFileDrag = (e: DragEvent): boolean =>
@@ -675,11 +680,11 @@ export class TerminalTabManager {
       !!(this.app as AppWithDrag).dragManager?.draggable;
 
     const showLabel = (e: DragEvent) => {
-      dragLabel.addClass("terminal-drag-label-visible");
+      dragLabel.addClass("lean-terminal-drag-label-visible");
       dragLabel.style.left = `${e.clientX + 14}px`;
       dragLabel.style.top = `${e.clientY + 14}px`;
     };
-    const hideLabel = () => { dragLabel.removeClass("terminal-drag-label-visible"); };
+    const hideLabel = () => { dragLabel.removeClass("lean-terminal-drag-label-visible"); };
 
     containerEl.addEventListener("dragenter", (e) => {
       if (!isFileDrag(e)) return;
@@ -963,7 +968,12 @@ export class TerminalTabManager {
     this.sessionCounter++;
     const id = `terminal-${this.sessionCounter}`;
     const name = opts?.name ?? `Terminal ${this.sessionCounter}`;
-    const sessionCwd = opts?.cwd ?? this.cwd;
+    const cwdPlan = planTabCwd(opts?.cwd, this.cwd, (p) => requireNode("fs").statSync(p).isDirectory());
+    const sessionCwd = cwdPlan.spawn;
+    if (cwdPlan.fellBack) {
+      console.warn(`[lean-terminal] Folder not available: ${cwdPlan.stored}. Opened ${sessionCwd} instead.`);
+      new Notice(`Folder not available: ${cwdPlan.stored}. Opened the vault root instead.`);
+    }
 
     const containerEl = this.terminalHostEl.createDiv({ cls: "terminal-session" });
     const { terminal, fitAddon, serializeAddon, searchAddon } = this.buildXterm(containerEl, opts);
@@ -996,7 +1006,7 @@ export class TerminalTabManager {
       pty,
       containerEl,
       color: opts?.color ?? "",
-      cwd: sessionCwd,
+      cwd: cwdPlan.stored,
       resumeCommand: opts?.resumeCommand,
       parserDisposables: [],
       mode2031: false,
@@ -1008,6 +1018,11 @@ export class TerminalTabManager {
       toggleSearch,
     };
     session.parserDisposables.push(resultsDisposable);
+    // OSC 52 (#103): let TUIs such as Claude Code set the system clipboard.
+    // Write-only: read queries get no reply (see osc52-clipboard.ts).
+    session.parserDisposables.push(
+      registerOsc52(terminal.parser, (text) => navigator.clipboard.writeText(text))
+    );
 
     terminal.onSelectionChange(() => {
       if (!this.settings.copyOnSelect) return;
@@ -1180,7 +1195,7 @@ export class TerminalTabManager {
    * (e.g. setState after onOpen's default-tab creation) to avoid polluting recents.
    */
   destroyAll(saveToRecents = true): void {
-    activeDocument.querySelector(".terminal-tab-context-menu")?.remove();
+    activeDocument.querySelector(".lean-terminal-tab-context-menu")?.remove();
     for (const session of this.sessions) {
       if (saveToRecents) {
         this.onSessionClose?.(this.captureSession(session));
@@ -1239,16 +1254,16 @@ export class TerminalTabManager {
     if (!session) return;
 
     // Remove any existing context menu
-    activeDocument.querySelector(".terminal-tab-context-menu")?.remove();
+    activeDocument.querySelector(".lean-terminal-tab-context-menu")?.remove();
 
     // createEl on body appends immediately; the menu is fully populated within
     // this same synchronous task, so nothing unfinished ever paints.
-    const menu = activeDocument.body.createDiv({ cls: "terminal-tab-context-menu" });
+    const menu = activeDocument.body.createDiv({ cls: "lean-terminal-tab-context-menu" });
     menu.style.left = `${e.pageX}px`;
     menu.style.top = `${e.pageY}px`;
 
     // Rename option
-    const renameItem = menu.createDiv({ cls: "terminal-ctx-item", text: "Rename" });
+    const renameItem = menu.createDiv({ cls: "lean-terminal-ctx-item", text: "Rename" });
     renameItem.addEventListener("click", () => {
       menu.remove();
       this.renameTab(sessionId, labelEl);
@@ -1256,7 +1271,7 @@ export class TerminalTabManager {
 
     // Pin / Unpin option
     const pinItem = menu.createDiv({
-      cls: "terminal-ctx-item",
+      cls: "lean-terminal-ctx-item",
       text: session.pinned ? "Unpin" : "Pin",
     });
     pinItem.addEventListener("click", () => {
@@ -1266,15 +1281,15 @@ export class TerminalTabManager {
     });
 
     // Color submenu
-    menu.createDiv({ cls: "terminal-ctx-item terminal-ctx-color-label", text: "Color" });
-    const colorRow = menu.createDiv({ cls: "terminal-ctx-color-row" });
+    menu.createDiv({ cls: "lean-terminal-ctx-item lean-terminal-ctx-color-label", text: "Color" });
+    const colorRow = menu.createDiv({ cls: "lean-terminal-ctx-color-row" });
 
     for (const c of this.settings.tabColors) {
-      const swatch = colorRow.createDiv({ cls: "terminal-ctx-swatch" });
+      const swatch = colorRow.createDiv({ cls: "lean-terminal-ctx-swatch" });
       if (c.value) {
         swatch.style.background = c.value;
       } else {
-        swatch.classList.add("terminal-ctx-swatch-none");
+        swatch.classList.add("lean-terminal-ctx-swatch-none");
       }
       if (session.color === c.value) {
         swatch.classList.add("active");
@@ -1328,6 +1343,13 @@ export class TerminalTabManager {
   updateLineHeight(): void {
     for (const session of this.sessions) {
       session.terminal.options.lineHeight = this.settings.lineHeight;
+    }
+  }
+
+  updateMinimumContrastRatio(): void {
+    const ratio = normalizeContrastRatio(this.settings.minimumContrastRatio);
+    for (const session of this.sessions) {
+      session.terminal.options.minimumContrastRatio = ratio;
     }
   }
 
